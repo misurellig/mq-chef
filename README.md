@@ -17,7 +17,6 @@ The following platforms have been tested with Test Kitchen:
 
 Cookbook Dependencies
 ---------------------
-- [limits](https://supermarket.chef.io/cookbooks/limits)
 - [yum](https://supermarket.chef.io/cookbooks/yum)
 
 Usage

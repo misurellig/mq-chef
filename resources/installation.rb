@@ -13,6 +13,7 @@
 # limitations under the License.
 
 property :source, kind_of: String, required: true
+property :major_release, kind_of: Integer, required: true, default: 8
 property :accept_license, kind_of: [TrueClass, FalseClass], default: false
 property :packages, kind_of: Array, default: %w(MQSeriesServer MQSeriesGSKit)
 property :primary, kind_of: [TrueClass, FalseClass], default: false
@@ -30,7 +31,7 @@ default_action :create
 # * Installs the MQ packages, as specified
 # * Sets the default MQ installation, as specified
 action :create do
-  raise 'You must accept the license to install IBM MQ.' unless accept_license
+  raise "Unsupported major release, supported versions are [7, 8]" unless [7, 8].include?(major_release.to_i)
   raise 'Non-primary installations are not currently supported' unless primary
 
   # include_recipe 'sysctl::ohai_plugin'
@@ -43,10 +44,10 @@ action :create do
   download_dir = "#{Chef::Config[:file_cache_path]}/ibm_mq"
   download_path = "#{download_dir}/#{name}.tar.gz"
   unpack_dir = "#{download_dir}/extract-#{name}"
-  if property_is_set?(:fixpack)
-    pkgs_dir = unpack_dir
-  else
+  if major_release == 7
     pkgs_dir = "#{unpack_dir}/MQServer"
+  else
+    pkgs_dir = unpack_dir
   end
 
   directory download_dir do
@@ -101,22 +102,24 @@ action :create do
     action :create
   end
 
-  set_limit 'mqm' do
-    type 'soft'
-    item 'nofile'
-    value 10_240
-  end
-
-  set_limit 'mqm' do
-    type 'hard'
-    item 'nofile'
-    value 10_240
-  end
+  # set_limit 'mqm' do
+  #   type 'soft'
+  #   item 'nofile'
+  #   value 10_240
+  # end
+  #
+  # set_limit 'mqm' do
+  #   type 'hard'
+  #   item 'nofile'
+  #   value 10_240
+  # end
 
   execute 'Accept the mqlicense' do
     user 'root'
-    cwd "#{unpack_dir}/MQServer"
-    command './mqlicense.sh -accept -text_only'
+    cwd pkgs_dir
+    command "./mqlicense.sh -accept -text_only"
+    only_if { accept_license }
+    action :nothing
   end
 
   # Work around bug in 'yum' cookbook
@@ -134,6 +137,7 @@ action :create do
     baseurl "file://#{pkgs_dir}"
     gpgcheck false
     action :create
+    notifies :run, 'execute[Accept the mqlicense]', :before
   end
 
   # Install MQ
